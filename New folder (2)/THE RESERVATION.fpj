@@ -1,34 +1,835 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<Project>
-	<VersionInfo>
-		<VersionNumbers Major="1" Minor="0" Release="0" Build="0"/>
-		<LanguageID Value="1033"/>
-		<CharsetID Value="1252"/>
-		<CompanyName Value=""/>
-		<FileVersion Value="1.0.0.0"/>
-		<FileDescription Value="Empty project"/>
-		<InternalName Value=""/>
-		<LegalCopyright Value=""/>
-		<LegalTrademarks Value=""/>
-		<OriginalFilename Value=""/>
-		<ProductName Value=""/>
-		<ProductVersion Value="1.0.0.0"/>
-		<AutoIncrementBuild Value="No"/>
-	</VersionInfo>
-	<Libs Value=""/>
-	<Flags Value=""/>
-	<Target Value="THE RESERVATION.exe"/>
-	<CommandLine Value=""/>
-	<CompilerOptions Value="-Wall -s"/>
-	<DeleteObjectsBefore Value="Yes"/>
-	<DeleteObjectsAfter Value="Yes"/>
-	<DeleteMakefileAfter Value="Yes"/>
-	<DeleteResourcesAfter Value="Yes"/>
-	<EnableTheme Value="No"/>
-	<RequiresAdmin Value="No"/>
-	<CompilerType Value="C"/>
-	<AppType Value="CONSOLE"/>
-	<Files>
-		<File Name="THE RESERVATION.cpp"/>
-	</Files>
-</Project>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <conio.h>
+#include <ctype.h>
+
+// Constants
+#define MAX_USERNAME_LENGTH 50
+#define MAX_PASSWORD_LENGTH 50
+#define MAX_VEHICLE_TYPE_LENGTH 50
+#define MAX_NAME_LENGTH 50
+#define MAX_DRIVER_NAME_LENGTH 50
+#define MAX_LOCATION_LENGTH 50
+#define MAX_TIME_LENGTH 20
+#define MAX_SCHEDULES 100  // Maximum number of vehicle schedules
+#define MAX_ROWS 14        // Maximum number of rows for seat arrangement
+#define MAX_COLS 6         // Maximum number of columns for seat arrangement
+#define FILENAME "user_credentials.txt"
+#define SCHEDULE_FILENAME "vehicle_schedule.txt"
+#define MAX_BOOKINGS 100
+
+// ANSI Escape Codes for Text Color
+#define RESET_COLOR "\033[0m"
+#define RED_COLOR "\033[91m"
+#define GREEN_COLOR "\033[92m"
+#define YELLOW_COLOR "\033[93m"
+#define BLUE_COLOR "\033[94m"
+#define MAGENTA_COLOR "\033[95m"
+#define CYAN_COLOR "\033[96m"
+#define BOLD_TEXT "\033[1m"
+#define UNDERLINE_TEXT "\033[4m"
+
+// Struct to represent vehicle schedule
+struct VehicleSchedule {
+    char type[MAX_VEHICLE_TYPE_LENGTH];
+    char name[MAX_NAME_LENGTH];
+    char driver[MAX_DRIVER_NAME_LENGTH];
+    char from[MAX_LOCATION_LENGTH];
+    char to[MAX_LOCATION_LENGTH];
+    char time[MAX_TIME_LENGTH];
+    double fare;
+    int seatCount;
+    int seatArray[MAX_ROWS][MAX_COLS];  // 2D array to represent seats
+};
+
+// Struct to represent booking information
+struct Booking {
+    char customerName[MAX_NAME_LENGTH];
+    char vehicleType[MAX_VEHICLE_TYPE_LENGTH];
+    char fromLocation[MAX_LOCATION_LENGTH];
+    char toLocation[MAX_LOCATION_LENGTH];
+    int seatRow;
+    int seatCol;
+};
+
+
+// Function to clear the console
+void clearConsole() {
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
+
+// Function to display the login menu
+// Function to display the login menu
+void displayLoginMenu() {
+    printf("=========== Login Menu ===========\n");
+    printf("1. Register\n");
+    printf("2. Login\n");
+    printf("3. Exit\n");
+    printf("==================================\n");
+}
+
+
+// Function to register a new user
+void registerUser() {
+    FILE *file = fopen(FILENAME, "a"); // Open the file in append mode
+
+    if (file == NULL) {
+        printf("Error opening file for registration.\n");
+        return;
+    }
+
+    printf("\n===== User Registration =====\n");
+
+    // Get user details
+    char username[MAX_USERNAME_LENGTH];
+    char password[MAX_PASSWORD_LENGTH];
+
+    printf("Enter a username (up to %d characters): ", MAX_USERNAME_LENGTH - 1);
+    fgets(username, sizeof(username), stdin);
+    username[strcspn(username, "\n")] = '\0'; // Remove newline character
+
+    printf("Enter a password (up to %d characters): ", MAX_PASSWORD_LENGTH - 1);
+    fgets(password, sizeof(password), stdin);
+    password[strcspn(password, "\n")] = '\0'; // Remove newline character
+
+    // Write user details to file
+    fprintf(file, "%s %s\n", username, password);
+
+    fclose(file); // Close the file
+
+    printf("Registration successful!\n");
+}
+
+
+// Function to authenticate a user
+int authenticateUser() {
+    printf("\n===== User Authentication =====\n");
+
+    // Get user details for authentication
+    char username[MAX_USERNAME_LENGTH];
+    char password[MAX_PASSWORD_LENGTH];
+
+    printf("Enter your username: ");
+    fgets(username, sizeof(username), stdin);
+    username[strcspn(username, "\n")] = '\0'; // Remove newline character
+
+    printf("Enter your password: ");
+    fgets(password, sizeof(password), stdin);
+    password[strcspn(password, "\n")] = '\0'; // Remove newline character
+
+    // Open the file for reading
+    FILE *file = fopen(FILENAME, "r");
+    if (file == NULL) {
+        printf("Error opening file for authentication.\n");
+        return 0; // Authentication failed
+    }
+
+    // Check if the entered credentials match any in the file
+    char line[MAX_USERNAME_LENGTH + MAX_PASSWORD_LENGTH + 2];
+    int authenticated = 0;
+
+    while (fgets(line, sizeof(line), file) != NULL) {
+        line[strcspn(line, "\n")] = '\0'; // Remove newline character
+        char storedUsername[MAX_USERNAME_LENGTH];
+        char storedPassword[MAX_PASSWORD_LENGTH];
+
+        if (sscanf(line, "%s %s", storedUsername, storedPassword) == 2) {
+            if (strcmp(username, storedUsername) == 0 && strcmp(password, storedPassword) == 0) {
+                authenticated = 1;
+                break;
+            }
+        }
+    }
+
+    fclose(file); // Close the file
+
+    if (authenticated) {
+        printf("Authentication successful!\n");
+        return 1; // Authentication successful
+    } else {
+        printf("Authentication failed. Please check your username and password.\n");
+        return 0; // Authentication failed
+    }
+}
+
+// Function to display booking history
+void displayBookingHistory(struct Booking *bookings, int bookingCount) {
+    clearConsole();
+
+    if (bookingCount == 0) {
+        printf("No booking history available.\n");
+        return;
+    }
+
+    printf("Booking History:\n");
+    printf("%-20s%-20s%-20s%-20s%-20s\n", "Customer Name", "Vehicle Type", "From", "To", "Seat");
+
+    for (int i = 0; i < bookingCount; ++i) {
+        printf("%-20s%-20s%-20s%-20s[%d, %d]\n",
+               bookings[i].customerName,
+               bookings[i].vehicleType,
+               bookings[i].fromLocation,
+               bookings[i].toLocation,
+               bookings[i].seatRow,
+               bookings[i].seatCol);
+    }
+}
+
+
+
+// Function to add a vehicle schedule
+void addVehicleSchedule(struct VehicleSchedule *vehicleSchedules, int *scheduleCount) {
+    if (*scheduleCount == MAX_SCHEDULES) {
+        printf("Maximum number of schedules reached. Cannot add more schedules.\n");
+        return;
+    }
+
+    printf("\n===== Add Vehicle Schedule =====\n");
+
+    // Get details for the new vehicle schedule
+    printf("Enter vehicle type: ");
+    fgets(vehicleSchedules[*scheduleCount].type, sizeof(vehicleSchedules[*scheduleCount].type), stdin);
+    vehicleSchedules[*scheduleCount].type[strcspn(vehicleSchedules[*scheduleCount].type, "\n")] = '\0'; // Remove newline character
+
+    printf("Enter vehicle name: ");
+    fgets(vehicleSchedules[*scheduleCount].name, sizeof(vehicleSchedules[*scheduleCount].name), stdin);
+    vehicleSchedules[*scheduleCount].name[strcspn(vehicleSchedules[*scheduleCount].name, "\n")] = '\0'; // Remove newline character
+
+    printf("Enter driver name: ");
+    fgets(vehicleSchedules[*scheduleCount].driver, sizeof(vehicleSchedules[*scheduleCount].driver), stdin);
+    vehicleSchedules[*scheduleCount].driver[strcspn(vehicleSchedules[*scheduleCount].driver, "\n")] = '\0'; // Remove newline character
+
+    printf("Enter departure location: ");
+    fgets(vehicleSchedules[*scheduleCount].from, sizeof(vehicleSchedules[*scheduleCount].from), stdin);
+    vehicleSchedules[*scheduleCount].from[strcspn(vehicleSchedules[*scheduleCount].from, "\n")] = '\0'; // Remove newline character
+
+    printf("Enter destination location: ");
+    fgets(vehicleSchedules[*scheduleCount].to, sizeof(vehicleSchedules[*scheduleCount].to), stdin);
+    vehicleSchedules[*scheduleCount].to[strcspn(vehicleSchedules[*scheduleCount].to, "\n")] = '\0'; // Remove newline character
+
+    printf("Enter departure time: ");
+    fgets(vehicleSchedules[*scheduleCount].time, sizeof(vehicleSchedules[*scheduleCount].time), stdin);
+    vehicleSchedules[*scheduleCount].time[strcspn(vehicleSchedules[*scheduleCount].time, "\n")] = '\0'; // Remove newline character
+
+    printf("Enter fare: ");
+    scanf("%lf", &vehicleSchedules[*scheduleCount].fare);
+    while (getchar() != '\n'); // Clear input buffer
+
+    printf("Enter seat count: ");
+    scanf("%d", &vehicleSchedules[*scheduleCount].seatCount);
+    while (getchar() != '\n'); // Clear input buffer
+
+    // Initialize seat array to all available (0)
+    for (int i = 0; i < MAX_ROWS; ++i) {
+        for (int j = 0; j < MAX_COLS; ++j) {
+            vehicleSchedules[*scheduleCount].seatArray[i][j] = 0;
+        }
+    }
+
+    (*scheduleCount)++;
+    printf("Vehicle schedule added successfully!\n");
+}
+void displayReceipt(struct Booking *booking) {
+    clearConsole();
+
+    // Get current time
+    //time_t currentTime;
+    //time(&currentTime);
+   // struct tm *localTime = localtime(&currentTime);
+
+    printf("%s===============================%s\n", CYAN_COLOR, RESET_COLOR);
+    printf("%s   AFRICANA TRAVELS Receipt  %s\n", BOLD_TEXT, RESET_COLOR);
+    printf("%s===============================%s\n", CYAN_COLOR, RESET_COLOR);
+    printf("%s%sCustomer Name:%s %s\n", YELLOW_COLOR, BOLD_TEXT, RESET_COLOR, booking->customerName);
+    printf("%s%sVehicle Type:%s %s\n", YELLOW_COLOR, BOLD_TEXT, RESET_COLOR, booking->vehicleType);
+    printf("%s%sFrom:%s %s\n", YELLOW_COLOR, BOLD_TEXT, RESET_COLOR, booking->fromLocation);
+    printf("%s%sTo:%s %s\n", YELLOW_COLOR, BOLD_TEXT, RESET_COLOR, booking->toLocation);
+    printf("%s%sSeat:%s [%d, %d]\n", YELLOW_COLOR, BOLD_TEXT, RESET_COLOR, booking->seatRow, booking->seatCol);
+    //printf("%s%sTime:%s %02d:%02d\n", YELLOW_COLOR, BOLD_TEXT, RESET_COLOR, localTime->tm_hour, localTime->tm_min);
+    printf("%s===============================%s\n", CYAN_COLOR, RESET_COLOR);
+    printf("%s%sThank you for choosing Africana Bus Reservation!%s\n", MAGENTA_COLOR, BOLD_TEXT, RESET_COLOR);
+}
+
+// Function to display vehicle schedules
+
+void displayVehicleSchedule(struct VehicleSchedule *vehicleSchedules, int scheduleCount) {
+    // Clear console
+    
+
+    printf("\n%s===== Vehicle Schedules =====%s\n", BOLD_TEXT, RESET_COLOR);
+
+    if (scheduleCount == 0) {
+        printf("No vehicle schedules available.\n");
+    } else {
+        printf("%-10s%-20s%-20s%-20s%-20s%-15s%-10s%-10s\n", UNDERLINE_TEXT "Type", "Name", "Driver", "From", "To", "Time", "Fare", "Seats" RESET_COLOR);
+        printf("%s============================================================================================%s\n", BLUE_COLOR, RESET_COLOR);
+
+        for (int i = 0; i < scheduleCount; ++i) {
+            printf("%-10s%-20s%-20s%-20s%-20s%-15s%-10.2lf%-10d\n",
+                   vehicleSchedules[i].type,
+                   vehicleSchedules[i].name,
+                   vehicleSchedules[i].driver,
+                   vehicleSchedules[i].from,
+                   vehicleSchedules[i].to,
+                   vehicleSchedules[i].time,
+                   vehicleSchedules[i].fare,
+                   vehicleSchedules[i].seatCount);
+        }
+    }
+}
+
+// Function to delete a vehicle schedule
+void deleteVehicleSchedule(struct VehicleSchedule *vehicleSchedules, int *scheduleCount) {
+    clearConsole();
+    printf(BOLD_TEXT "Delete Vehicle Schedule\n" RESET_COLOR);
+
+    if (*scheduleCount == 0) {
+        printf("No schedules available for deletion.\n");
+        return;
+    }
+
+    // Display existing schedules
+    displayVehicleSchedule(vehicleSchedules, *scheduleCount);
+
+    // Get the index of the schedule to be deleted
+    int deleteIndex;
+    printf("Enter the index of the schedule to be deleted (1-%d): ", *scheduleCount);
+    scanf("%d", &deleteIndex);
+
+    // Validate the index
+    if (deleteIndex < 1 || deleteIndex > *scheduleCount) {
+        printf("Invalid index. Please enter a valid index.\n");
+        return;
+    }
+
+    // Confirm deletion with the user
+    char confirm;
+    printf("Are you sure you want to delete this schedule? (Y/N): ");
+    scanf(" %c", &confirm);
+
+    if (toupper(confirm) == 'Y') {
+        // Shift elements to overwrite the deleted schedule
+        for (int i = deleteIndex - 1; i < *scheduleCount - 1; ++i) {
+            vehicleSchedules[i] = vehicleSchedules[i + 1];
+        }
+
+        // Decrement schedule count
+        (*scheduleCount)--;
+
+        printf(GREEN_COLOR "Schedule deleted successfully.\n" RESET_COLOR);
+    } else {
+        printf("Deletion canceled.\n");
+    }
+
+    // Wait for user input before returning to the main menu
+    printf("Press Enter to continue...");
+    while (getchar() != '\n');
+}
+
+
+// Function to load vehicle schedules from a file
+void loadSchedulesFromFile(struct VehicleSchedule *vehicleSchedules, int *scheduleCount) {
+    FILE *file = fopen(SCHEDULE_FILENAME, "r");
+
+    if (file == NULL) {
+        printf("Error opening file for reading.\n");
+        return;
+    }
+
+    *scheduleCount = 0; // Reset schedule count
+
+    while (fread(&vehicleSchedules[*scheduleCount], sizeof(struct VehicleSchedule), 1, file) == 1) {
+        (*scheduleCount)++;
+    }
+
+    fclose(file);
+
+    printf("Schedules loaded successfully.\n");
+}
+
+
+// Function to save vehicle schedules to a file
+void saveSchedulesToFile(struct VehicleSchedule *vehicleSchedules, int scheduleCount) {
+    FILE *file = fopen(SCHEDULE_FILENAME, "w");
+
+    if (file == NULL) {
+        printf("Error opening file for writing.\n");
+        return;
+    }
+
+    for (int i = 0; i < scheduleCount; ++i) {
+        fwrite(&vehicleSchedules[i], sizeof(struct VehicleSchedule), 1, file);
+    }
+
+    fclose(file);
+
+    printf("Schedules saved successfully.\n");
+}
+
+
+// Function to display the seat map
+void displaySeatMap(int rows, int columns, int array_2d[14][6]) {
+    clearConsole();
+    printf(BOLD_TEXT "Seat Map\n" RESET_COLOR);
+
+    printf("Legend:\n");
+    printf("[ ] - Empty Seat\n");
+    printf("[X] - Booked Seat\n");
+
+    for (int i = 0; i < rows; ++i) {
+        printf("Row %2d: ", i + 1);
+        for (int j = 0; j < columns; ++j) {
+            if (array_2d[i][j] == 0) {
+                printf("[ ] ");  // Empty seat
+            } else {
+                printf("[X] ");  // Booked seat
+            }
+        }
+        printf("\n");
+    }
+
+    // Wait for user input before returning to the previous menu
+    printf("Press Enter to continue...");
+    while (getchar() != '\n');
+}
+
+
+
+// Function to book a seat
+// Function to book a seat
+void bookSeat(struct VehicleSchedule *vehicleSchedules, int scheduleCount, struct Booking *bookings, int *bookingCount) {
+    clearConsole();
+    printf(BOLD_TEXT "Book a Seat\n" RESET_COLOR);
+
+    if (scheduleCount == 0) {
+        printf("No schedules available for booking.\n");
+        return;
+    }
+
+    // Display existing schedules
+    displayVehicleSchedule(vehicleSchedules, scheduleCount);
+
+    // Get the index of the schedule for booking
+    int scheduleIndex;
+    printf("Enter the index of the schedule for booking (1-%d): ", scheduleCount);
+    scanf("%d", &scheduleIndex);
+
+    // Validate the index
+    if (scheduleIndex < 1 || scheduleIndex > scheduleCount) {
+        printf("Invalid index. Please enter a valid index.\n");
+        return;
+    }
+
+    // Get the number of available seats
+    int availableSeats = 0;
+    for (int i = 0; i < MAX_ROWS; ++i) {
+        for (int j = 0; j < MAX_COLS; ++j) {
+            if (vehicleSchedules[scheduleIndex - 1].seatArray[i][j] == 0) {
+                availableSeats++;
+            }
+        }
+    }
+
+    if (availableSeats == 0) {
+        printf("No available seats for the selected schedule.\n");
+        return;
+    }
+
+    // Display seat map for the selected schedule
+    displaySeatMap(MAX_ROWS, MAX_COLS, vehicleSchedules[scheduleIndex - 1].seatArray);
+
+    // Get customer information
+    printf("Enter your name: ");
+    scanf("%s", bookings[*bookingCount].customerName);
+
+    // Get the desired seat
+    int seatRow, seatCol;
+    printf("Enter the row and column of the seat you want to book (e.g., 2 3): ");
+    scanf("%d %d", &seatRow, &seatCol);
+
+    // Validate the seat
+    if (seatRow < 1 || seatRow > MAX_ROWS || seatCol < 1 || seatCol > MAX_COLS ||
+        vehicleSchedules[scheduleIndex - 1].seatArray[seatRow - 1][seatCol - 1] == 1) {
+        printf("Invalid seat selection. Please try again.\n");
+        return;
+    }
+
+    // Update the seat status
+    vehicleSchedules[scheduleIndex - 1].seatArray[seatRow - 1][seatCol - 1] = 1;
+
+    // Update booking information
+    strcpy(bookings[*bookingCount].vehicleType, vehicleSchedules[scheduleIndex - 1].type);
+    strcpy(bookings[*bookingCount].fromLocation, vehicleSchedules[scheduleIndex - 1].from);
+    strcpy(bookings[*bookingCount].toLocation, vehicleSchedules[scheduleIndex - 1].to);
+    bookings[*bookingCount].seatRow = seatRow;
+    bookings[*bookingCount].seatCol = seatCol;
+
+    // Increment booking count
+    (*bookingCount)++;
+
+    printf(GREEN_COLOR "Seat booked successfully.\n" RESET_COLOR);
+    
+    displayReceipt(&bookings[*bookingCount - 1]);
+
+    // Wait for user input before returning to the main menu
+    printf("Press Enter to continue...");
+    while (getchar() != '\n');
+}
+
+
+// Function to find the index of a vehicle schedule based on vehicle type
+int findScheduleIndex(struct VehicleSchedule *vehicleSchedules, int scheduleCount, const char *vehicleType) {
+    for (int i = 0; i < scheduleCount; ++i) {
+        if (strcmp(vehicleSchedules[i].type, vehicleType) == 0) {
+            return i;
+        }
+    }
+    return -1;  // Not found
+}
+
+
+// Function to cancel a booking
+void cancelBooking(struct VehicleSchedule *vehicleSchedules, int scheduleCount, struct Booking *bookings, int *bookingCount) {
+    if (*bookingCount == 0) {
+        printf("No bookings available to cancel.\n");
+        return;
+    }
+
+    // Display booking history
+    printf("Booking History:\n");
+    for (int i = 0; i < *bookingCount; ++i) {
+        printf("%d. %s - %s (%s)\n", i + 1, bookings[i].fromLocation, bookings[i].toLocation, bookings[i].vehicleType);
+    }
+
+    // Prompt user to choose a booking to cancel
+    int chosenBooking;
+    printf("Enter the index of the booking to cancel (1-%d): ", *bookingCount);
+    scanf("%d", &chosenBooking);
+
+    // Validate the input
+    if (chosenBooking < 1 || chosenBooking > *bookingCount) {
+        printf("Invalid index. Please enter a valid index.\n");
+        return;
+    }
+
+    // Retrieve the booking details
+    struct Booking canceledBooking = bookings[chosenBooking - 1];
+
+    // Mark the seat as available in the corresponding schedule
+    int scheduleIndex = findScheduleIndex(vehicleSchedules, scheduleCount, canceledBooking.vehicleType);
+    if (scheduleIndex != -1) {
+        int row = canceledBooking.seatRow - 1;
+        int col = canceledBooking.seatCol - 1;
+
+        // Mark the seat as available
+        vehicleSchedules[scheduleIndex].seatArray[row][col] = 0;
+
+        // Remove the booking from the booking array
+        for (int i = chosenBooking - 1; i < *bookingCount - 1; ++i) {
+            bookings[i] = bookings[i + 1];
+        }
+
+        // Decrease the booking count
+        (*bookingCount)--;
+
+        printf("Booking canceled successfully.\n");
+    } else {
+        printf("Error: Vehicle schedule not found for the canceled booking.\n");
+    }
+}
+
+
+
+// Function to display bus seats
+void displayBusSeats(struct VehicleSchedule *vehicleSchedules, int scheduleCount) {
+    if (scheduleCount == 0) {
+        printf("No buses available.\n");
+        return;
+    }
+
+    // Display available buses
+    printf("Available Buses:\n");
+    for (int i = 0; i < scheduleCount; ++i) {
+        printf("%d. %s %s\n", i + 1, vehicleSchedules[i].type, vehicleSchedules[i].name);
+    }
+
+    // Prompt user to choose a bus
+    int chosenBus;
+    printf("Enter the index of the bus to view seats (1-%d): ", scheduleCount);
+    scanf("%d", &chosenBus);
+
+    // Validate the input
+    if (chosenBus < 1 || chosenBus > scheduleCount) {
+        printf("Invalid index. Please enter a valid index.\n");
+        return;
+    }
+
+    // Display the seat map of the chosen bus
+    printf("\nSeat Map for %s %s:\n", vehicleSchedules[chosenBus - 1].type, vehicleSchedules[chosenBus - 1].name);
+    displaySeatMap(MAX_ROWS, MAX_COLS, vehicleSchedules[chosenBus - 1].seatArray);
+}
+
+
+
+// Function to display shuttle seats
+void displayShuttleSeats(int array_2d[14][6]) {
+    displaySeatMap(MAX_ROWS, MAX_COLS, array_2d);
+}
+
+
+
+
+
+
+
+
+
+
+void modifyVehicleSchedule(struct VehicleSchedule *vehicleSchedules, int scheduleCount) {
+    clearConsole();
+
+    // Display current schedules
+    printf("Current Vehicle Schedules:\n");
+    displayVehicleSchedule(vehicleSchedules, scheduleCount);
+
+    // Get the index of the schedule to modify
+    int index;
+    printf("Enter the index of the schedule to modify: ");
+    scanf("%d", &index);
+
+    // Check if the index is valid
+    if (index >= 0 && index < scheduleCount) {
+        // Display the selected schedule
+        printf("\nSelected Vehicle Schedule:\n");
+        printf("Index: %d\n", index);
+        printf("Type: %s\n", vehicleSchedules[index].type);
+        printf("Name: %s\n", vehicleSchedules[index].name);
+        printf("Driver: %s\n", vehicleSchedules[index].driver);
+        printf("From: %s\n", vehicleSchedules[index].from);
+        printf("To: %s\n", vehicleSchedules[index].to);
+        printf("Time: %s\n", vehicleSchedules[index].time);
+        printf("Fare: $%.2lf\n", vehicleSchedules[index].fare);
+        printf("Seat Count: %d\n", vehicleSchedules[index].seatCount);
+
+        // Modify the selected schedule
+        printf("\nEnter new details for the schedule:\n");
+        printf("Type: ");
+        scanf("%s", vehicleSchedules[index].type);
+        printf("Name: ");
+        scanf("%s", vehicleSchedules[index].name);
+        printf("Driver: ");
+        scanf("%s", vehicleSchedules[index].driver);
+        printf("From: ");
+        scanf("%s", vehicleSchedules[index].from);
+        printf("To: ");
+        scanf("%s", vehicleSchedules[index].to);
+        printf("Time: ");
+        scanf("%s", vehicleSchedules[index].time);
+        printf("Fare: $");
+        scanf("%lf", &vehicleSchedules[index].fare);
+        printf("Seat Count: ");
+        scanf("%d", &vehicleSchedules[index].seatCount);
+
+        // Display the modified schedule
+        printf("\nModified Vehicle Schedule:\n");
+        printf("Index: %d\n", index);
+        printf("Type: %s\n", vehicleSchedules[index].type);
+        printf("Name: %s\n", vehicleSchedules[index].name);
+        printf("Driver: %s\n", vehicleSchedules[index].driver);
+        printf("From: %s\n", vehicleSchedules[index].from);
+        printf("To: %s\n", vehicleSchedules[index].to);
+        printf("Time: %s\n", vehicleSchedules[index].time);
+        printf("Fare: $%.2lf\n", vehicleSchedules[index].fare);
+        printf("Seat Count: %d\n", vehicleSchedules[index].seatCount);
+
+        printf("\nVehicle schedule modified successfully!\n");
+    } else {
+        printf("Invalid index. No schedule found for modification.\n");
+    }
+
+    printf("\nPress Enter to continue...");
+    while (getchar() != '\n'); // Clear input buffer
+    getchar(); // Wait for Enter key
+}
+
+
+// Function to display the main menu
+void displayMainMenu() {
+    printf("\n%s=============================%s\n", BLUE_COLOR, RESET_COLOR);
+    printf("%s  AFRICANA TRAVELS Main Menu %s\n", BOLD_TEXT, RESET_COLOR);
+    printf("%s=============================%s\n", BLUE_COLOR, RESET_COLOR);
+    printf("%s%s1. Vehicle Management%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s2. Booking Management%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s3. Booking History%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s4. Save to File%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s5. Load from File%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s6. Logout%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s7. Exit%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s=============================%s\n", BLUE_COLOR, RESET_COLOR);
+}
+
+// Function to display the vehicle management submenu
+void displayVehicleManagementMenu() {
+    printf("\n%s===============================%s\n", BLUE_COLOR, RESET_COLOR);
+    printf("%s  Vehicle Management Menu %s\n", BOLD_TEXT, RESET_COLOR);
+    printf("%s===============================%s\n", BLUE_COLOR, RESET_COLOR);
+    printf("%s%s1. Add Schedule%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s2. Modify Schedule%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s3. Delete Schedule%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s4. Display Schedules%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s5. Return to Main Menu%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s===============================%s\n", BLUE_COLOR, RESET_COLOR);
+}
+
+// Function to display the booking management submenu
+void displayBookingManagementMenu() {
+    printf("\n%s=================================%s\n", BLUE_COLOR, RESET_COLOR);
+    printf("%s  Booking Management Menu %s\n", BOLD_TEXT, RESET_COLOR);
+    printf("%s=================================%s\n", BLUE_COLOR, RESET_COLOR);
+    printf("%s%s1. Book Seat%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s2. Cancel Booking%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s3. Display Bus Seats%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s4. Display Shuttle Seats%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s%s5. Return to Main Menu%s\n", CYAN_COLOR, BOLD_TEXT, RESET_COLOR);
+    printf("%s=================================%s\n", BLUE_COLOR, RESET_COLOR);
+}
+
+int main() {
+    struct VehicleSchedule vehicleSchedules[MAX_SCHEDULES];
+    struct Booking bookings[MAX_BOOKINGS];
+    int scheduleCount = 0;
+    int bookingCount = 0;
+    int loggedIn = 0;
+    int exitProgram = 0;
+    
+
+    while (!exitProgram) {
+        if (!loggedIn) {
+            //clearConsole();
+            displayLoginMenu();
+
+            int loginChoice;
+            printf("Enter your choice: ");
+            scanf("%d", &loginChoice);
+            while (getchar() != '\n'); // Clear input buffer
+
+            switch (loginChoice) {
+                case 1:
+                    registerUser();
+                    break;
+                case 2:
+                    loggedIn = authenticateUser();
+                    break;
+                case 3:
+                    exitProgram = 1;
+                    break;
+                default:
+                    printf("Invalid choice. Please try again.\n");
+            }
+        } else {
+            clearConsole();
+            displayMainMenu();
+
+            int mainChoice;
+            printf("Enter your choice: ");
+            scanf("%d", &mainChoice);
+            while (getchar() != '\n'); // Clear input buffer
+
+            switch (mainChoice) {
+                case 1: // Vehicle Management
+                    while (1) {
+                        //clearConsole();
+                        displayVehicleManagementMenu();
+
+                        int vehicleManagementChoice;
+                        printf("Enter your choice: ");
+                        scanf("%d", &vehicleManagementChoice);
+                        while (getchar() != '\n'); // Clear input buffer
+
+                        switch (vehicleManagementChoice) {
+                            case 1:
+                                addVehicleSchedule(vehicleSchedules, &scheduleCount);
+                                break;
+                            case 2:
+                                modifyVehicleSchedule(vehicleSchedules, scheduleCount);
+                                break;
+                            case 3:
+                                deleteVehicleSchedule(vehicleSchedules, &scheduleCount);
+                                break;
+                            case 4:
+                                displayVehicleSchedule(vehicleSchedules, scheduleCount);
+                                break;
+                            case 5:
+                                break;
+                            default:
+                                printf("Invalid choice. Please try again.\n");
+                        }
+
+                        if (vehicleManagementChoice == 5) {
+                            break;
+                        }
+                    }
+                    break;
+                case 2: // Booking Management
+                    while (1) {
+                        //clearConsole();
+                        displayBookingManagementMenu();
+
+                        int bookingManagementChoice;
+                        printf("Enter your choice: ");
+                        scanf("%d", &bookingManagementChoice);
+                        while (getchar() != '\n'); // Clear input buffer
+
+                        switch (bookingManagementChoice) {
+                            case 1:
+                                bookSeat(vehicleSchedules, scheduleCount, bookings, &bookingCount);
+                                break;
+                            case 2:
+                                cancelBooking(vehicleSchedules, scheduleCount, bookings, &bookingCount);
+                                break;
+                            case 3:
+                                displayBusSeats(vehicleSchedules, scheduleCount);
+                                break;
+                            case 4:
+                                displayShuttleSeats(vehicleSchedules[0].seatArray);
+                                break;
+                            case 5:
+                                break;
+                            default:
+                                printf("Invalid choice. Please try again.\n");
+                        }
+
+                        if (bookingManagementChoice == 5) {
+                            break;
+                        }
+                    }
+                    break;
+                case 3: // Booking History
+                    displayBookingHistory(bookings, bookingCount);
+                    break;
+                case 4: // Save to File
+                    saveSchedulesToFile(vehicleSchedules, scheduleCount);
+                    break;
+                case 5: // Load from File
+                    loadSchedulesFromFile(vehicleSchedules, &scheduleCount);
+                    break;
+                case 6:
+                    loggedIn = 0;
+                    printf("Logout successful.\n");
+                    break;
+                case 7:
+                    exitProgram = 1;
+                    break;
+                default:
+                    printf("Invalid choice. Please try again.\n");
+            }
+        }
+    }
+
+    return 0;
+}
