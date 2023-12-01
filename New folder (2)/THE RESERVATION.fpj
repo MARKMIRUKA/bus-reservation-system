@@ -379,7 +379,7 @@ void loadSchedulesFromFile(struct VehicleSchedule *vehicleSchedules, int *schedu
     FILE *file = fopen(SCHEDULE_FILENAME, "r");
 
     if (file == NULL) {
-        printf("Error opening file for reading.\n");
+       //printf("Error opening file for reading.\n");
         return;
     }
 
