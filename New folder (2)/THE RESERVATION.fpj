@@ -84,6 +84,7 @@ void displayLoginMenu() {
 
 
 // Function to register a new user
+
 void registerUser() {
     FILE *file = fopen(FILENAME, "a"); // Open the file in append mode
 
@@ -103,16 +104,34 @@ void registerUser() {
     username[strcspn(username, "\n")] = '\0'; // Remove newline character
 
     printf("Enter a password (up to %d characters): ", MAX_PASSWORD_LENGTH - 1);
-    fgets(password, sizeof(password), stdin);
-    password[strcspn(password, "\n")] = '\0'; // Remove newline character
+
+    int i = 0;
+    while (1) {
+        char ch = getch(); // Get a single character without echoing it
+        if (ch == '\r' || ch == '\n') {
+            break; // Break loop on Enter key
+        } else if (ch == 8 && i > 0) {
+            // Handle backspace to erase the last character
+            i--;
+            printf("\b \b"); // Move cursor back, print space, move cursor back again
+        } else if (i < MAX_PASSWORD_LENGTH - 1) {
+            // Only store valid characters up to the maximum length
+            password[i] = ch;
+            i++;
+            printf("*"); // Print asterisk instead of the actual character
+        }
+    }
+
+    password[i] = '\0'; // Null-terminate the password
 
     // Write user details to file
     fprintf(file, "%s %s\n", username, password);
 
     fclose(file); // Close the file
 
-    printf("Registration successful!\n");
+    printf("\nRegistration successful!\n");
 }
+
 
 
 // Function to authenticate a user
@@ -128,8 +147,25 @@ int authenticateUser() {
     username[strcspn(username, "\n")] = '\0'; // Remove newline character
 
     printf("Enter your password: ");
-    fgets(password, sizeof(password), stdin);
-    password[strcspn(password, "\n")] = '\0'; // Remove newline character
+
+    int i = 0;
+    while (1) {
+        char ch = getch(); // Get a single character without echoing it
+        if (ch == '\r' || ch == '\n') {
+            break; // Break loop on Enter key
+        } else if (ch == 8 && i > 0) {
+            // Handle backspace to erase the last character
+            i--;
+            printf("\b \b"); // Move cursor back, print space, move cursor back again
+        } else if (i < MAX_PASSWORD_LENGTH - 1) {
+            // Only store valid characters up to the maximum length
+            password[i] = ch;
+            i++;
+            printf("*"); // Print asterisk instead of the actual character
+        }
+    }
+
+    password[i] = '\0'; // Null-terminate the password
 
     // Open the file for reading
     FILE *file = fopen(FILENAME, "r");
@@ -158,14 +194,13 @@ int authenticateUser() {
     fclose(file); // Close the file
 
     if (authenticated) {
-        printf("Authentication successful!\n");
+        printf("\nAuthentication successful!\n");
         return 1; // Authentication successful
     } else {
-        printf("Authentication failed. Please check your username and password.\n");
+        printf("\nAuthentication failed. Please check your username and password.\n");
         return 0; // Authentication failed
     }
 }
-
 // Function to display booking history
 void displayBookingHistory(struct Booking *bookings, int bookingCount) {
     clearConsole();
