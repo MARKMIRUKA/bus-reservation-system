@@ -12,7 +12,7 @@
 #define MAX_DRIVER_NAME_LENGTH 50
 #define MAX_LOCATION_LENGTH 50
 #define MAX_TIME_LENGTH 20
-#define MAX_SCHEDULES 100  // Maximum number of vehicle schedules
+#define MAX_SCHEDULES 100  
 #define MAX_ROWS 13        // Maximum number of rows for seat arrangement
 #define MAX_ROWS_S 4
 #define MAX_COLS 4      // Maximum number of columns for seat arrangement
